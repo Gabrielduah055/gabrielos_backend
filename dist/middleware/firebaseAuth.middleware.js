@@ -24,7 +24,7 @@ const firebaseAuth = async (req, res, next) => {
                 message: "Unauthorized. No token provided.",
             });
         }
-        const decodedToken = await firebase_1.default.auth().verifyIdToken(token);
+        const decodedToken = await firebase_1.default.auth().verifyIdToken(token, true);
         req.firebaseUser = decodedToken;
         next();
     }
