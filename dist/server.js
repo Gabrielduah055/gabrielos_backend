@@ -7,6 +7,7 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("./config/db"));
+const initDatabase_1 = require("./config/initDatabase");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const opportunity_routes_1 = __importDefault(require("./modules/opportunities/opportunity.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
@@ -46,8 +47,18 @@ app.use((err, _req, res, _next) => {
         error: process.env.NODE_ENV === "production" ? undefined : err.message,
     });
 });
-app.listen(PORT, () => {
-    console.log(`GabrielOS backend running on port ${PORT}`);
-});
+async function startServer() {
+    try {
+        await (0, initDatabase_1.initDatabase)();
+        app.listen(PORT, () => {
+            console.log(`GabrielOS backend running on port ${PORT}`);
+        });
+    }
+    catch (error) {
+        console.error("Failed to start GabrielOS backend:", error);
+        process.exit(1);
+    }
+}
+void startServer();
 exports.default = app;
 //# sourceMappingURL=server.js.map

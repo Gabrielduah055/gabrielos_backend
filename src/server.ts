@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 import pool from "./config/db";
+import { initDatabase } from "./config/initDatabase";
 import authRoutes from "./routes/auth.routes";
 import opportunityRoutes from "./modules/opportunities/opportunity.routes";
 import userRoutes from "./routes/user.routes";
@@ -48,8 +49,19 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`GabrielOS backend running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await initDatabase();
+
+    app.listen(PORT, () => {
+      console.log(`GabrielOS backend running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start GabrielOS backend:", error);
+    process.exit(1);
+  }
+}
+
+void startServer();
 
 export default app;
