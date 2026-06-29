@@ -1,4 +1,6 @@
 import { NextFunction, Request, Response } from "express";
+import admin from "../config/firebase";
+import { AuthRequest } from "../middleware/firebaseAuth.middleware";
 
 interface FirebaseSignInSuccess {
   idToken: string;
@@ -77,6 +79,30 @@ export async function login(
         email: signInData.email,
         fullName: signInData.displayName || "",
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function logout(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const firebaseUser = req.firebaseUser;
+
+    if (!firebaseUser) {
+      return res.status(401).json({
+        message: "Unauthorized. Firebase user not found.",
+      });
+    }
+
+    await admin.auth().revokeRefreshTokens(firebaseUser.uid);
+
+    return res.json({
+      message: "Signed out successfully.",
     });
   } catch (error) {
     next(error);

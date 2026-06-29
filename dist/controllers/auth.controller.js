@@ -1,6 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.login = login;
+exports.logout = logout;
+const firebase_1 = __importDefault(require("../config/firebase"));
 async function login(req, res, next) {
     try {
         const { email, password } = req.body;
@@ -44,6 +49,23 @@ async function login(req, res, next) {
                 email: signInData.email,
                 fullName: signInData.displayName || "",
             },
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+}
+async function logout(req, res, next) {
+    try {
+        const firebaseUser = req.firebaseUser;
+        if (!firebaseUser) {
+            return res.status(401).json({
+                message: "Unauthorized. Firebase user not found.",
+            });
+        }
+        await firebase_1.default.auth().revokeRefreshTokens(firebaseUser.uid);
+        return res.json({
+            message: "Signed out successfully.",
         });
     }
     catch (error) {
