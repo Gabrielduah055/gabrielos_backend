@@ -38,13 +38,13 @@ export async function searchWeb(
   query: string,
   options: SearchOptions = {}
 ): Promise<WebSearchResult[]> {
-  const provider = process.env.SEARCH_PROVIDER ?? "tavily";
+  const provider = (process.env.SEARCH_PROVIDER ?? "tavily").trim().toLowerCase();
 
-  if (provider !== "tavily") {
+  if (provider !== "tavily" && provider !== "travily") {
     throw new TavilySearchError();
   }
 
-  const apiKey = process.env.TAVILY_API_KEY;
+  const apiKey = process.env.TAVILY_API_KEY?.trim();
 
   if (!apiKey) {
     throw new TavilyConfigurationError();

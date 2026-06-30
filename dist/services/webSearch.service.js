@@ -15,11 +15,11 @@ class TavilySearchError extends Error {
 }
 exports.TavilySearchError = TavilySearchError;
 async function searchWeb(query, options = {}) {
-    const provider = process.env.SEARCH_PROVIDER ?? "tavily";
-    if (provider !== "tavily") {
+    const provider = (process.env.SEARCH_PROVIDER ?? "tavily").trim().toLowerCase();
+    if (provider !== "tavily" && provider !== "travily") {
         throw new TavilySearchError();
     }
-    const apiKey = process.env.TAVILY_API_KEY;
+    const apiKey = process.env.TAVILY_API_KEY?.trim();
     if (!apiKey) {
         throw new TavilyConfigurationError();
     }
