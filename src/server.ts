@@ -3,8 +3,10 @@ import dotenv from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 import pool from "./config/db";
 import { initDatabase } from "./config/initDatabase";
+import candidateRoutes from "./modules/opportunity-candidates/opportunityCandidate.routes";
 import authRoutes from "./routes/auth.routes";
 import opportunityRoutes from "./modules/opportunities/opportunity.routes";
+import scoutGoalRoutes from "./modules/scout-goals/scoutGoal.routes";
 import userRoutes from "./routes/user.routes";
 
 dotenv.config();
@@ -38,6 +40,8 @@ app.get("/api/users", async (_req: Request, res: Response, next: NextFunction) =
 });
 
 app.use("/api/opportunities", opportunityRoutes);
+app.use("/api/opportunity-candidates", candidateRoutes);
+app.use("/api/scout-goals", scoutGoalRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 

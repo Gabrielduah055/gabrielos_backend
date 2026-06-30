@@ -8,8 +8,10 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("./config/db"));
 const initDatabase_1 = require("./config/initDatabase");
+const opportunityCandidate_routes_1 = __importDefault(require("./modules/opportunity-candidates/opportunityCandidate.routes"));
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const opportunity_routes_1 = __importDefault(require("./modules/opportunities/opportunity.routes"));
+const scoutGoal_routes_1 = __importDefault(require("./modules/scout-goals/scoutGoal.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -38,6 +40,8 @@ app.get("/api/users", async (_req, res, next) => {
     }
 });
 app.use("/api/opportunities", opportunity_routes_1.default);
+app.use("/api/opportunity-candidates", opportunityCandidate_routes_1.default);
+app.use("/api/scout-goals", scoutGoal_routes_1.default);
 app.use("/api/auth", auth_routes_1.default);
 app.use("/api/users", user_routes_1.default);
 app.use((err, _req, res, _next) => {
