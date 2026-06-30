@@ -5,6 +5,9 @@ exports.addScoutGoal = addScoutGoal;
 exports.getScoutGoal = getScoutGoal;
 exports.updateScoutGoal = updateScoutGoal;
 exports.deleteScoutGoal = deleteScoutGoal;
+exports.runScoutGoalById = runScoutGoalById;
+const scout_service_1 = require("../../services/scout.service");
+const webSearch_service_1 = require("../../services/webSearch.service");
 const authenticatedUser_1 = require("../../utils/authenticatedUser");
 const opportunity_constants_1 = require("../opportunities/opportunity.constants");
 const requestParsing_1 = require("../opportunities/requestParsing");
@@ -149,6 +152,39 @@ async function deleteScoutGoal(req, res, next) {
         res.json(scoutGoal);
     }
     catch (error) {
+        next(error);
+    }
+}
+async function runScoutGoalById(req, res, next) {
+    try {
+        const user = await (0, authenticatedUser_1.getAuthenticatedUser)(req, res);
+        if (!user)
+            return;
+        const id = parseId(res, req.params.id);
+        if (!id)
+            return;
+        const summary = await (0, scout_service_1.runScoutGoal)(user.id, id);
+        res.json({
+            message: "Scout completed successfully.",
+            ...summary,
+        });
+    }
+    catch (error) {
+        if (error instanceof scout_service_1.ScoutGoalNotFoundError) {
+            return res.status(404).json({
+                message: "Scout Goal not found.",
+            });
+        }
+        if (error instanceof webSearch_service_1.TavilyConfigurationError) {
+            return res.status(500).json({
+                message: "Tavily API key is not configured.",
+            });
+        }
+        if (error instanceof webSearch_service_1.TavilySearchError) {
+            return res.status(502).json({
+                message: "Scout failed while searching the web.",
+            });
+        }
         next(error);
     }
 }

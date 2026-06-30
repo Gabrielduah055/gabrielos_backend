@@ -5,6 +5,7 @@ import {
   deleteScoutGoal,
   getScoutGoal,
   listScoutGoals,
+  runScoutGoalById,
   updateScoutGoal,
 } from "./scoutGoal.controller";
 
@@ -14,6 +15,7 @@ router.use(firebaseAuth);
 
 router.get("/", listScoutGoals);
 router.post("/", addScoutGoal);
+router.post("/:id/run", runScoutGoalById);
 router.get("/:id", getScoutGoal);
 router.patch("/:id", updateScoutGoal);
 router.delete("/:id", deleteScoutGoal);

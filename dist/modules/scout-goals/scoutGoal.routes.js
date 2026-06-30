@@ -7,6 +7,7 @@ const router = (0, express_1.Router)();
 router.use(firebaseAuth_middleware_1.firebaseAuth);
 router.get("/", scoutGoal_controller_1.listScoutGoals);
 router.post("/", scoutGoal_controller_1.addScoutGoal);
+router.post("/:id/run", scoutGoal_controller_1.runScoutGoalById);
 router.get("/:id", scoutGoal_controller_1.getScoutGoal);
 router.patch("/:id", scoutGoal_controller_1.updateScoutGoal);
 router.delete("/:id", scoutGoal_controller_1.deleteScoutGoal);
