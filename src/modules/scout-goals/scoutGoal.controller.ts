@@ -1,5 +1,13 @@
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "../../middleware/firebaseAuth.middleware";
+import {
+  runScoutGoal,
+  ScoutGoalNotFoundError,
+} from "../../services/scout.service";
+import {
+  TavilyConfigurationError,
+  TavilySearchError,
+} from "../../services/webSearch.service";
 import { getAuthenticatedUser } from "../../utils/authenticatedUser";
 import {
   isAllowedValue,
@@ -206,6 +214,47 @@ export async function deleteScoutGoal(
 
     res.json(scoutGoal);
   } catch (error) {
+    next(error);
+  }
+}
+
+export async function runScoutGoalById(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await getAuthenticatedUser(req, res);
+    if (!user) return;
+
+    const id = parseId(res, req.params.id);
+    if (!id) return;
+
+    const summary = await runScoutGoal(user.id, id);
+
+    res.json({
+      message: "Scout completed successfully.",
+      ...summary,
+    });
+  } catch (error) {
+    if (error instanceof ScoutGoalNotFoundError) {
+      return res.status(404).json({
+        message: "Scout Goal not found.",
+      });
+    }
+
+    if (error instanceof TavilyConfigurationError) {
+      return res.status(500).json({
+        message: "Tavily API key is not configured.",
+      });
+    }
+
+    if (error instanceof TavilySearchError) {
+      return res.status(502).json({
+        message: "Scout failed while searching the web.",
+      });
+    }
+
     next(error);
   }
 }
