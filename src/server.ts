@@ -7,6 +7,7 @@ import candidateRoutes from "./modules/opportunity-candidates/opportunityCandida
 import authRoutes from "./routes/auth.routes";
 import opportunityRoutes from "./modules/opportunities/opportunity.routes";
 import scoutGoalRoutes from "./modules/scout-goals/scoutGoal.routes";
+import serviceAutomationRoutes from "./modules/service-automation/serviceAutomation.routes";
 import userRoutes from "./routes/user.routes";
 
 dotenv.config();
@@ -44,6 +45,11 @@ app.use("/api/opportunity-candidates", candidateRoutes);
 app.use("/api/scout-goals", scoutGoalRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+
+// Service-to-service automation surface for Hermes Agent (or any future
+// automation caller). Protected by serviceAuth (shared secret), not
+// firebaseAuth - see src/middleware/serviceAuth.middleware.ts.
+app.use("/api/service", serviceAutomationRoutes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
