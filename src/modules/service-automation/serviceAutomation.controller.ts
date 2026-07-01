@@ -5,6 +5,7 @@ import {
 } from "../../utils/hermesServiceUser";
 import { listScoutGoalsForUser } from "../scout-goals/scoutGoal.service";
 import { listCandidatesForUser } from "../opportunity-candidates/opportunityCandidate.service";
+import { buildDailyBrief } from "../../services/dailyBrief.service";
 import {
   runScoutGoal,
   ScoutGoalNotFoundError,
@@ -108,6 +109,27 @@ export async function listPendingCandidatesForService(
 
     const candidates = await listCandidatesForUser(userId);
     res.json(candidates.filter((candidate) => candidate.status === "pending"));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getDailyBriefForService(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = resolveServiceUserId(res);
+    if (!userId) return;
+
+    const brief = await buildDailyBrief(userId);
+
+    res.json({
+      ...brief,
+      narrative: null,
+      narrativeSource: null,
+    });
   } catch (error) {
     next(error);
   }
