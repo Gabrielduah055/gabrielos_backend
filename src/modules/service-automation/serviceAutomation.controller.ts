@@ -6,6 +6,7 @@ import {
 import { listScoutGoalsForUser } from "../scout-goals/scoutGoal.service";
 import { listCandidatesForUser } from "../opportunity-candidates/opportunityCandidate.service";
 import { buildDailyBrief } from "../../services/dailyBrief.service";
+import { generateDailyBriefNarrative } from "../../services/narrative.service";
 import {
   runScoutGoal,
   ScoutGoalNotFoundError,
@@ -124,11 +125,12 @@ export async function getDailyBriefForService(
     if (!userId) return;
 
     const brief = await buildDailyBrief(userId);
+    const { narrative, source } = await generateDailyBriefNarrative(brief);
 
     res.json({
       ...brief,
-      narrative: null,
-      narrativeSource: null,
+      narrative,
+      narrativeSource: source,
     });
   } catch (error) {
     next(error);
