@@ -9,6 +9,7 @@ import opportunityRoutes from "./modules/opportunities/opportunity.routes";
 import scoutGoalRoutes from "./modules/scout-goals/scoutGoal.routes";
 import serviceAutomationRoutes from "./modules/service-automation/serviceAutomation.routes";
 import userRoutes from "./routes/user.routes";
+import newsRoutes from "./modules/news/news.routes";
 
 dotenv.config();
 
@@ -45,6 +46,7 @@ app.use("/api/opportunity-candidates", candidateRoutes);
 app.use("/api/scout-goals", scoutGoalRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/news", newsRoutes);
 
 // Service-to-service automation surface for Hermes Agent (or any future
 // automation caller). Protected by serviceAuth (shared secret), not
