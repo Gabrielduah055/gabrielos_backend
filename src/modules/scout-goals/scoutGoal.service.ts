@@ -1,24 +1,25 @@
 import pool from "../../config/db";
-import { OpportunityType, ScoutGoalFrequency } from "../opportunities/opportunity.constants";
+import { ScoutGoalFrequency, ScoutGoalType } from "../opportunities/opportunity.constants";
 
 export interface ScoutGoal {
   id: number;
   userId: number;
   title: string;
-  type: OpportunityType;
+  type: ScoutGoalType;
   keywords: string | null;
   location: string | null;
   sources: string | null;
   frequency: ScoutGoalFrequency;
   minimumScore: number;
   isActive: boolean;
+  lastRunAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface CreateScoutGoalInput {
   title: string;
-  type?: OpportunityType | null;
+  type?: ScoutGoalType | null;
   keywords?: string | null;
   location?: string | null;
   sources?: string | null;
@@ -41,6 +42,7 @@ const scoutGoalSelect = `
     frequency,
     minimum_score AS "minimumScore",
     is_active AS "isActive",
+    last_run_at AS "lastRunAt",
     created_at AS "createdAt",
     updated_at AS "updatedAt"
   FROM scout_goals
@@ -96,6 +98,7 @@ export async function createScoutGoalForUser(
         frequency,
         minimum_score AS "minimumScore",
         is_active AS "isActive",
+        last_run_at AS "lastRunAt",
         created_at AS "createdAt",
         updated_at AS "updatedAt"
     `,
@@ -161,6 +164,7 @@ export async function updateScoutGoalForUser(
         frequency,
         minimum_score AS "minimumScore",
         is_active AS "isActive",
+        last_run_at AS "lastRunAt",
         created_at AS "createdAt",
         updated_at AS "updatedAt"
     `,
@@ -189,6 +193,7 @@ export async function deleteScoutGoalForUser(
         frequency,
         minimum_score AS "minimumScore",
         is_active AS "isActive",
+        last_run_at AS "lastRunAt",
         created_at AS "createdAt",
         updated_at AS "updatedAt"
     `,
@@ -196,4 +201,32 @@ export async function deleteScoutGoalForUser(
   );
 
   return result.rows[0] ?? null;
+}
+
+export async function markScoutGoalRun(id: number): Promise<void> {
+  await pool.query(
+    `UPDATE scout_goals SET last_run_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [id]
+  );
+}
+
+const FREQUENCY_INTERVALS_MS: Record<ScoutGoalFrequency, number> = {
+  daily: 20 * 60 * 60 * 1000, // ~20h, so a job scheduled once/day always catches it
+  weekly: 6.5 * 24 * 60 * 60 * 1000,
+  monthly: 27 * 24 * 60 * 60 * 1000,
+};
+
+export function isScoutGoalDue(goal: ScoutGoal, now: Date = new Date()): boolean {
+  if (!goal.isActive) {
+    return false;
+  }
+
+  if (!goal.lastRunAt) {
+    return true;
+  }
+
+  const interval = FREQUENCY_INTERVALS_MS[goal.frequency] ?? FREQUENCY_INTERVALS_MS.weekly;
+  const lastRunTime = new Date(goal.lastRunAt).getTime();
+
+  return now.getTime() - lastRunTime >= interval;
 }

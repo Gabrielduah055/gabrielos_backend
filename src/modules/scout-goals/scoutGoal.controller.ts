@@ -11,8 +11,8 @@ import {
 import { getAuthenticatedUser } from "../../utils/authenticatedUser";
 import {
   isAllowedValue,
-  OPPORTUNITY_TYPES,
   SCOUT_GOAL_FREQUENCIES,
+  SCOUT_GOAL_TYPES,
 } from "../opportunities/opportunity.constants";
 import {
   readOptionalBoolean,
@@ -66,7 +66,7 @@ function readScoutGoalInput(
 
   const type = readOptionalString(req.body.type);
   if (type !== undefined) {
-    if (type !== null && !isAllowedValue(OPPORTUNITY_TYPES, type)) {
+    if (type !== null && !isAllowedValue(SCOUT_GOAL_TYPES, type)) {
       res.status(400).json({ message: "type is not allowed." });
       return null;
     }

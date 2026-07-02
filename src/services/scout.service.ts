@@ -1,7 +1,13 @@
 import pool from "../config/db";
-import { OpportunityType } from "../modules/opportunities/opportunity.constants";
+import { OPPORTUNITY_TYPES, OpportunityType } from "../modules/opportunities/opportunity.constants";
 import { createCandidateForUser } from "../modules/opportunity-candidates/opportunityCandidate.service";
-import { findScoutGoalForUser, ScoutGoal } from "../modules/scout-goals/scoutGoal.service";
+import {
+  findScoutGoalForUser,
+  isScoutGoalDue,
+  listScoutGoalsForUser,
+  markScoutGoalRun,
+  ScoutGoal,
+} from "../modules/scout-goals/scoutGoal.service";
 import { searchWeb, WebSearchResult } from "./webSearch.service";
 
 export interface ScoutSummary {
@@ -10,6 +16,20 @@ export interface ScoutSummary {
   candidatesCreated: number;
   skippedDuplicates: number;
   candidates: unknown[];
+}
+
+export interface DueScoutGoalResult {
+  scoutGoalId: number;
+  title: string;
+  summary: ScoutSummary | null;
+  error?: string;
+}
+
+export interface DueScoutRunSummary {
+  goalsChecked: number;
+  goalsRun: number;
+  totalCandidatesCreated: number;
+  results: DueScoutGoalResult[];
 }
 
 export class ScoutGoalNotFoundError extends Error {
@@ -55,6 +75,18 @@ const TYPE_WORDS: Record<OpportunityType, string[]> = {
   other: ["opportunity", "application", "contact"],
 };
 
+// Types worth generating dedicated search queries for when a goal targets
+// 'all' categories. 'other' is left out here — it's a catch-all fallback
+// for classification, not a distinct thing to search for.
+const ALL_MODE_TYPES: OpportunityType[] = OPPORTUNITY_TYPES.filter(
+  (type) => type !== "other"
+) as OpportunityType[];
+
+// Cap total queries per run when a goal targets 'all' categories, so a
+// single run doesn't fan out into dozens of Tavily calls.
+const ALL_MODE_MAX_QUERIES = 12;
+const ALL_MODE_QUERIES_PER_TYPE = 2;
+
 function cleanPart(value: string | null | undefined, fallback = "") {
   return value?.trim() || fallback;
 }
@@ -67,7 +99,10 @@ function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-export function generateScoutQueries(scoutGoal: ScoutGoal): string[] {
+function queryTemplatesForType(
+  scoutGoal: Pick<ScoutGoal, "title" | "keywords" | "location">,
+  type: OpportunityType
+): string[] {
   const title = cleanPart(scoutGoal.title);
   const keywords = cleanPart(scoutGoal.keywords, title);
   const location = cleanPart(scoutGoal.location, "Ghana");
@@ -130,7 +165,21 @@ export function generateScoutQueries(scoutGoal: ScoutGoal): string[] {
     ],
   };
 
-  return uniqueStrings((byType[scoutGoal.type] ?? byType.other).map(compactQuery)).slice(0, 5);
+  return byType[type] ?? byType.other;
+}
+
+export function generateScoutQueries(scoutGoal: ScoutGoal): string[] {
+  if (scoutGoal.type === "all") {
+    const combined = ALL_MODE_TYPES.flatMap((type) =>
+      queryTemplatesForType(scoutGoal, type).slice(0, ALL_MODE_QUERIES_PER_TYPE)
+    );
+
+    return uniqueStrings(combined.map(compactQuery)).slice(0, ALL_MODE_MAX_QUERIES);
+  }
+
+  return uniqueStrings(
+    queryTemplatesForType(scoutGoal, scoutGoal.type).map(compactQuery)
+  ).slice(0, 5);
 }
 
 function tokenize(value: string) {
@@ -141,7 +190,7 @@ function tokenize(value: string) {
     .filter((word) => word.length > 2);
 }
 
-function importantKeywords(scoutGoal: ScoutGoal) {
+function importantKeywords(scoutGoal: Pick<ScoutGoal, "title" | "keywords">) {
   const rawKeywords = [
     ...tokenize(scoutGoal.title),
     ...tokenize(scoutGoal.keywords ?? ""),
@@ -171,12 +220,41 @@ function looksOfficial(result: WebSearchResult) {
   );
 }
 
-export function scoreResult(result: WebSearchResult, scoutGoal: ScoutGoal): number {
+/**
+ * Determines which opportunity type a search result best matches, by
+ * counting keyword hits against every type's word list. Used for 'all'
+ * category scout goals, where a single run has no single fixed type to
+ * score against and each result must be classified individually.
+ */
+export function inferBestType(result: WebSearchResult): OpportunityType {
+  const combined = `${result.title} ${result.snippet}`.toLowerCase();
+
+  let bestType: OpportunityType = "other";
+  let bestMatches = 0;
+
+  for (const type of ALL_MODE_TYPES) {
+    const words = TYPE_WORDS[type] ?? [];
+    const matches = words.filter((word) => combined.includes(word.toLowerCase())).length;
+
+    if (matches > bestMatches) {
+      bestMatches = matches;
+      bestType = type;
+    }
+  }
+
+  return bestMatches > 0 ? bestType : "other";
+}
+
+export function scoreResult(
+  result: WebSearchResult,
+  scoutGoal: Pick<ScoutGoal, "title" | "keywords" | "location">,
+  effectiveType: OpportunityType
+): number {
   const title = result.title.toLowerCase();
   const snippet = result.snippet.toLowerCase();
   const combined = `${title} ${snippet}`;
   const keywords = importantKeywords(scoutGoal);
-  const typeWords = TYPE_WORDS[scoutGoal.type] ?? TYPE_WORDS.other;
+  const typeWords = TYPE_WORDS[effectiveType] ?? TYPE_WORDS.other;
   let score = 0;
 
   if (containsAny(title, keywords)) score += 25;
@@ -270,7 +348,10 @@ export async function runScoutGoal(
   const minimumScore = scoutGoal.minimumScore ?? 70;
 
   for (const result of dedupedResults) {
-    const score = scoreResult(result, scoutGoal);
+    const effectiveType: OpportunityType =
+      scoutGoal.type === "all" ? inferBestType(result) : scoutGoal.type;
+
+    const score = scoreResult(result, scoutGoal, effectiveType);
 
     if (score < minimumScore) {
       continue;
@@ -284,7 +365,7 @@ export async function runScoutGoal(
     const candidate = await createCandidateForUser(userId, {
       scoutGoalId,
       title: result.title,
-      type: scoutGoal.type,
+      type: effectiveType,
       organization: inferOrganization(result.title),
       source: "Tavily Web Search",
       link: result.url,
@@ -298,11 +379,49 @@ export async function runScoutGoal(
     candidates.push(candidate);
   }
 
+  await markScoutGoalRun(scoutGoalId);
+
   return {
     queriesRun: queries.length,
     rawResultsFound,
     candidatesCreated: candidates.length,
     skippedDuplicates,
     candidates,
+  };
+}
+
+/**
+ * Runs every active scout goal for a user whose schedule (frequency +
+ * last_run_at) says it's due right now. This is what powers unattended
+ * automation (e.g. a daily Hermes cron job) instead of requiring the user
+ * to click "Run" by hand.
+ */
+export async function runDueScoutGoalsForUser(userId: number): Promise<DueScoutRunSummary> {
+  const goals = await listScoutGoalsForUser(userId);
+  const dueGoals = goals.filter((goal) => isScoutGoalDue(goal));
+
+  const results: DueScoutGoalResult[] = [];
+  let totalCandidatesCreated = 0;
+
+  for (const goal of dueGoals) {
+    try {
+      const summary = await runScoutGoal(userId, goal.id);
+      totalCandidatesCreated += summary.candidatesCreated;
+      results.push({ scoutGoalId: goal.id, title: goal.title, summary });
+    } catch (error) {
+      results.push({
+        scoutGoalId: goal.id,
+        title: goal.title,
+        summary: null,
+        error: error instanceof Error ? error.message : "Unknown error while running this scout goal.",
+      });
+    }
+  }
+
+  return {
+    goalsChecked: goals.length,
+    goalsRun: dueGoals.length,
+    totalCandidatesCreated,
+    results,
   };
 }

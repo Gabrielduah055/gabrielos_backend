@@ -8,6 +8,7 @@ import { listCandidatesForUser } from "../opportunity-candidates/opportunityCand
 import { buildDailyBrief } from "../../services/dailyBrief.service";
 import { generateDailyBriefNarrative } from "../../services/narrative.service";
 import {
+  runDueScoutGoalsForUser,
   runScoutGoal,
   ScoutGoalNotFoundError,
 } from "../../services/scout.service";
@@ -83,6 +84,47 @@ export async function runScoutGoalForService(
       return res.status(404).json({ message: "Scout Goal not found." });
     }
 
+    if (error instanceof TavilyConfigurationError) {
+      return res.status(500).json({
+        message: "Tavily API key is not configured.",
+      });
+    }
+
+    if (error instanceof TavilySearchError) {
+      return res.status(502).json({
+        message: "Scout failed while searching the web.",
+      });
+    }
+
+    next(error);
+  }
+}
+
+/**
+ * Runs whichever active scout goals are currently due (per each goal's
+ * frequency + last_run_at), rather than one specific goal by id. This is
+ * the endpoint an unattended scheduler (e.g. a Hermes cron job) should
+ * call periodically instead of the user having to click "Run" by hand.
+ */
+export async function runDueScoutGoalsForService(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = resolveServiceUserId(res);
+    if (!userId) return;
+
+    const summary = await runDueScoutGoalsForUser(userId);
+
+    res.json({
+      message:
+        summary.goalsRun > 0
+          ? "Due scout goals completed successfully."
+          : "No scout goals were due to run.",
+      ...summary,
+    });
+  } catch (error) {
     if (error instanceof TavilyConfigurationError) {
       return res.status(500).json({
         message: "Tavily API key is not configured.",

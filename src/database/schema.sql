@@ -317,3 +317,16 @@ BEGIN
       CHECK (priority IN ('low', 'medium', 'high')) NOT VALID;
   END IF;
 END $$;
+
+-- Scout goals can optionally target 'all' opportunity categories in a
+-- single run (searches every type, classifies each result individually)
+-- instead of being locked to one type. The constraint is dropped and
+-- re-added on every boot (rather than guarded by IF NOT EXISTS on the
+-- constraint name) so the allowed value list here always matches
+-- SCOUT_GOAL_TYPES in application code.
+ALTER TABLE scout_goals ADD COLUMN IF NOT EXISTS last_run_at TIMESTAMP;
+
+ALTER TABLE scout_goals DROP CONSTRAINT IF EXISTS scout_goals_type_check;
+ALTER TABLE scout_goals
+  ADD CONSTRAINT scout_goals_type_check
+  CHECK (type IN ('job', 'scholarship', 'school_pilot', 'client_lead', 'contract', 'business', 'research', 'grant', 'other', 'all')) NOT VALID;
